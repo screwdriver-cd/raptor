@@ -1,0 +1,19 @@
+shared:
+    image: node:12
+
+jobs:
+    setup:
+        annotations:
+            screwdriver.cd/ram: HIGH
+            screwdriver.cd/cpu: HIGH
+        requires:
+            - ~pr
+            - ~commit
+        steps:
+            - install: npm install
+
+    run-test:
+        requires: [main]
+        steps:
+            - script: artillery run --output report.html load-script.yaml
+            - save: cp report.html $SD_ARTIFACTS_DIR

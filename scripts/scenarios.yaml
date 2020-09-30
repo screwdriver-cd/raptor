@@ -1,0 +1,237 @@
+config:
+  tar- get: "http://sd.ouroath.com:4200/"
+  defaults:
+    headers:
+      Authorization: "{{ $processEnvironment.SD_TOKEN }}"
+  phases:
+    - duration: 10
+      arrivalRate: 1
+  environments:
+    production:
+      target: "https://cd.screwdriver.cd"
+      phases:
+        - duration: 120
+          arrivalRate: 10
+    staging:
+      target: "https://beta.cd.screwdriver.cd/"
+      phases:
+        - duration: 1200
+          arrivalRate: 20
+    variables:
+      pipelineId: "{{ $processEnvironment.PIPELINE_ID }}"
+scenarios:
+  - log: "Current environment is set to: {{ $environment }}"
+  - flow:
+      - log: "Login to Aplication"
+      - get:
+          url: "/v4/contexts"
+          capture:
+            json: $
+            as: contexts
+      - loop: 
+          get:
+            url: "/v4/banners"
+        count: 2
+      - get:
+          url: "/v4/auth/login/{{ $contexts[0].context }}/web"  
+      - get:
+          url: "/v4/collections"
+          capture:
+            json: $
+            as: collections
+      - loop:
+          - get:
+              url: "/v4/collections/{{ $loopElement.id }}"
+          - get:
+              url: "/v4/pipelines/{{ $pipelineId }}/metrics?count=20&page=1"
+          - loop: 
+              get:
+                url: "/v4/pipelines/{{ $loopElement }}"
+            over: "{{ loopElement.pipelineIds }}"
+        over: collections
+  - flow:
+    - log: "Pipeline Graph View"
+    - loop: 
+        - get:
+          url: "/v4/collections"
+          capture:
+            json: $
+            as: collections
+        - get: 
+            url: "/v4/pipelines/{{ $pipelineId }}"
+        - get:
+            url: "/v4/banners"
+        - get: 
+            url: "/v4/pipelines/{{ $pipelineId }}/jobs"
+            capture: 
+              json: $
+              as: jobs
+        - get: 
+            url: "/v4/pipelines/{{ $pipelineId }}/triggers"
+        - get: 
+            url: "/v4/pipelines/{{ $pipelineId }}/events?count=5&page=1"
+            capture:
+              json: $
+              as: events
+        - loop:
+            - get: 
+                url: "/v4/events/{{ $loopElement.id }}/builds"
+                capture:
+                  json: $
+                  as: builds
+            - get: 
+                url: "/v4/events/{{ $loopElement.id }}"
+          over: events
+      count: 2
+  - flow:
+    - log: "Start Pipeline"
+    - post: 
+        url: "v4/events"
+        json:
+          pipelineId: "{{ $pipelineId }}"
+          startFrom: "~commit"
+          causeMessage: "Manually started by f22-raptor"
+    - get: 
+        url: "/v4/pipelines/{{ $pipelineId }}/jobs"
+    - get: 
+        url: "/v4/pipelines/{{ $pipelineId }}/triggers"
+    - get: 
+        url: "/v4/pipelines/{{ $pipelineId }}/events?count=5&page=1"
+    - loop:
+        - get: 
+            url: "/v4/events/{{ $loopElement.id }}/builds"
+            capture:
+              json: $
+              as: builds
+        - get: 
+            url: "/v4/events/{{ $loopElement.id }}"
+      over: events
+  - flow:
+    - log: "Build View"
+    - loop: 
+        get: 
+          url: "/v4/builds/{{ $loopElement.id }}/steps/sd-setup-launcher/logs?from=0&pages=10&sort=ascending"
+          ifTrue: $loopElement.status == 'SUCCESS' || $loopElement.status == 'ABORTED'
+      over: builds
+  - flow:
+    - log: "List View"
+    - get : 
+        url: "/v4/builds/statuses?jobIds="
+        qs:
+          loop:
+            - jobIds: "{{ $loopElement.id }}"
+          over: jobs
+          numBuilds: 5
+          offset: 0
+        capture:
+          json: //builds[*]
+          as: listViewJobs
+    - loop:
+        get:
+          url: "/v4/coverage/info"
+          qs:
+            jobId: "{{ $loopElement.jobId }}"
+            buildId: "{{ $loopElement.id }}"
+            startTime: "{{ $loopElement.startTime }}"
+            endTime: "{{ $loopElement.endTime }}"
+            jobName: null
+            pipelineName: null
+            prParentJobId: null
+      over: listViewJobs
+  - flow:
+    - log: "Secrets"
+    - loop:
+      - get: 
+          url: "/v4/pipelines/{{ $pipelineId }}/secrets"
+      - get: 
+          url: "/v4/pipelines/{{ $pipelineId }}/tokens"
+    count: 2
+  - flow:
+    - log: "Metrics"
+    - get: 
+        url: "/pipelines/{{ $pipelineId }}/metrics"
+    - loop:
+        - get: 
+            url: "/v4/pipelines/{{ $pipelineId }}/metrics?endTime=2020-09-28T15%3A27&startTime=2020-08-28T15%3A27"
+        - get: 
+            url: "/v4/pipelines/{{ $pipelineId }}/metrics?endTime=2020-09-28T15%3A28&startTime=2020-06-28T15%3A28"
+      count: 2
+  - flow:
+    - log: "Restart Build"
+    - loop: 
+        - think: 5
+        - get: 
+            url: "/v4/builds/{{ $loopElement.id }}/steps/sd-setup-launcher/logs?from=0&pages=10&sort=ascending"
+            ifTrue: $loopElement.status == 'ABORTED'
+        - get:
+            url: "/v4/builds/{{ $loopElement.id }}/steps/sd-teardown-screwdriver-coverage-bookend/logs?from=1&pages=2&sort=descending"
+            ifTrue: $loopElement.status == 'SUCCESS' 
+        - think: 5
+        - post:
+            url: "/v4/events"
+            json: 
+              causeMessage: "Manually started by f22-raptor"
+              buildId: "{{ $loopElement.id }}"
+            capture:
+              json: $
+              as: newEvent
+        - get:
+            url: "/v4/events/{{ newEvent.id }}/builds"
+            capture:
+              json: /[0]
+              as: newBuild
+        - get:
+            url: "/v4/events/{{ newEvent.id }}"
+        - get:
+            url: "/v4/jobs/{{ newBuild.jobId }}"
+        - loop:
+            - think: 5
+            - get:
+                url: "/v4/builds/{{ newBuild.id }}"
+          count: 10
+      over: builds
+      count: 3
+  - flow:
+    - log: "Abort Build"
+    - weight: 1
+    - think: 2
+    - loop: 
+        - think: 5
+        - get: 
+            url: "/v4/builds/{{ $loopElement.id }}/steps/sd-setup-launcher/logs?from=0&pages=10&sort=ascending"
+            ifTrue: $loopElement.status == 'ABORTED'
+        - get:
+            url: "/v4/builds/{{ $loopElement.id }}/steps/sd-teardown-screwdriver-coverage-bookend/logs?from=1&pages=2&sort=descending"
+            ifTrue: $loopElement.status == 'SUCCESS' 
+        - think: 5
+        - post:
+            url: "/v4/events"
+            json: 
+              causeMessage: "Manually started by f22-raptor"
+              buildId: "{{ $loopElement.id }}"
+            capture:
+              json: $
+              as: newEvent
+        - get:
+            url: "/v4/events/{{ newEvent.id }}/builds"
+            capture:
+              json: /[0]
+              as: newBuild
+        - get:
+            url: "/v4/events/{{ newEvent.id }}"
+        - get:
+            url: "/v4/jobs/{{ newBuild.jobId }}"
+        - loop:
+            - think: 5
+            - get:
+                url: "/v4/builds/{{ newBuild.id }}"
+          count: 4
+        - put: 
+          url: "/v4/builds/{{ newBuild.id }}"
+          json:
+            status: "ABORTED"
+      over: builds
+      count: 3
+
+
+      
