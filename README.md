@@ -20,4 +20,5 @@ artillery run --environment staging --output report.html load-script.yaml
 artillery run --environment production --output report.html load-script.yaml
 
 ```
-
+### Results
+Output is generated in report.html

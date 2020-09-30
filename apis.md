@@ -52,3 +52,7 @@
 ```
 { status: "ABORTED" }
 ```
+
+### Scripts
+1. Add scenarios in /scripts/scenarios.yaml
+2. Refer [artillery.io](https://artillery.io/docs/guides/guides/http-reference.html#Overview) for specification
