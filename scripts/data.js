@@ -25,6 +25,10 @@ function setUpMetricQueryData2(context, events, done) {
 }
 
 module.exports = {
+    beforeRequestHandler(req, ctx, ee, next) {
+        req.headers['Authorization'] = `Bearer ${ctx.authToken}`
+        return next()
+    },
     setUpMetricQueryData1: setUpMetricQueryData1,
     setUpMetricQueryData2: setUpMetricQueryData2
   }

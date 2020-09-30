@@ -1,5 +1,9 @@
 shared:
     image: node:12
+    parameters: 
+        SD_API_TOKEN: ""
+        SD_PIPELINE_ID: ""
+        SD_TARGET_ENDPOINT: "https://beta.api.screwdriver.cd"
 
 jobs:
     setup:
@@ -15,5 +19,11 @@ jobs:
     run-test:
         requires: [main]
         steps:
-            - script: artillery run --output report.html load-script.yaml
-            - save: cp report.html $SD_ARTIFACTS_DIR
+            - script: |
+                export SD_TARGET_ENDPOINT=$(meta get parameters.SD_TARGET_ENDPOINT.value)
+                export SD_PIPELINE_ID=$(meta get parameters.SD_PIPELINE_ID.value)
+                export SD_API_TOKEN=$(meta get parameters.SD_API_TOKEN.value)
+                RESULT=$(curl $SD_TARGET_ENDPOINT/v4/auth/token?api_token=$SD_API_TOKEN)
+                export SD_TOKEN=$(echo $RESULT | jq '.token')
+                ./node_modules/artillery/bin/artillery run --output report.html scripts/scenarios.yaml
+            - save: cp ./report.html $SD_ARTIFACTS_DIR
