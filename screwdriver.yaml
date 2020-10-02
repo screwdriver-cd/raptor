@@ -2,8 +2,8 @@ shared:
     image: node:12
 
 parameters: 
-    SD_API_TOKEN: ""
-    SD_PIPELINE_ID: ""
+    SD_API_TOKEN: "dummyToken"
+    SD_PIPELINE_ID: "3"
     SD_TARGET_ENDPOINT: "https://beta.api.screwdriver.cd"
 
 jobs:
