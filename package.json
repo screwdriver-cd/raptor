@@ -1,7 +1,7 @@
 {
-  "name": "raptor",
+  "name": "screwdriver-raptor",
   "version": "1.0.0",
-  "description": "Load testing library",
+  "description": "Screwdriver load testing library",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -13,7 +13,7 @@
   "author": "Pritam Paul <pritamstyz4ever@gmail.com>",
   "license": "BSD-3-Clause",
   "bugs": {
-    "url": "https://github.com/screwdriver-cd/raptor/issues"
+    "url": "https://github.com/screwdriver-cd/screwdriver/issues"
   },
   "homepage": "https://github.com/screwdriver-cd/raptor#readme",
   "devDependencies": {
