@@ -3,7 +3,7 @@ Load test scripts for Screwdriver API
 
 
 # running the load test
-1. Set the env variables $SD_TOKEN, $PIPELINE_ID
+1. Set the env variables $SD_API_TOKEN, $PIPELINE_ID, $SD_TARGET_ENDPOINT
 2. Set the environment to staging or production
 3. Run artillery
 
