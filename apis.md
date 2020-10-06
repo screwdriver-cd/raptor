@@ -1,4 +1,4 @@
-## API callsz
+## API calls
 
 ### Login
 1. GET /v4/

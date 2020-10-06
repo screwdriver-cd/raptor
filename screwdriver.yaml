@@ -12,7 +12,6 @@ jobs:
             - ~pr
             - ~commit
         steps:
-            - deps: sudo apt-get install jq
             - setup-ci: git clone https://github.com/screwdriver-cd/toolbox.git ci
             - install: npm install
 
