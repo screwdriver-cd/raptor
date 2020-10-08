@@ -1,0 +1,28 @@
+shared:
+    image: node:12
+
+parameters: 
+    SD_API_TOKEN: "dummyToken"
+    SD_PIPELINE_ID: "3"
+    SD_TARGET_ENDPOINT: "https://beta.api.screwdriver.cd"
+
+jobs:
+    main:
+        requires:
+            - ~pr
+            - ~commit
+        steps:
+            - setup-ci: git clone https://github.com/screwdriver-cd/toolbox.git ci
+            - install: npm install
+
+    run-test:
+        requires: [main]
+        steps:
+            - script: |
+                export SD_TARGET_ENDPOINT=$(meta get parameters.SD_TARGET_ENDPOINT.value)
+                export SD_PIPELINE_ID=$(meta get parameters.SD_PIPELINE_ID.value)
+                export SD_API_TOKEN=$(meta get parameters.SD_API_TOKEN.value)
+                RESULT=$(curl $SD_TARGET_ENDPOINT/v4/auth/token?api_token=$SD_API_TOKEN)
+                export SD_TOKEN=$(node get-token.js $RESULT)
+                ./node_modules/artillery/bin/artillery run --output report.html scripts/scenarios.yaml
+            - save: cp ./report.html $SD_ARTIFACTS_DIR
